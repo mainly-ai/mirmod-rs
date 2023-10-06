@@ -25,6 +25,11 @@ impl MirandaConfig {
     }
 
     pub fn new_from_default() -> Result<MirandaConfig, Box<dyn std::error::Error>> {
+        if let Ok(env_config) = std::env::var("MIRANDA_CONFIG_JSON") {
+            debug_println!("[cfg] Loading config from MIRANDA_CONFIG_JSON");
+            let config = std::fs::read_to_string(env_config)?;
+            return Ok(serde_json::from_str(&config)?);
+        }
         // check if config.json exists in home directory
         let home_dir = dirs::home_dir().unwrap();
         let home_config = home_dir.join("config.json");
