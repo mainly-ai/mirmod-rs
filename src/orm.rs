@@ -36,7 +36,7 @@ impl BaseObject {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum DockerJobWorkflowState {
     Uninitialized,
     Starting,
