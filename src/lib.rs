@@ -46,7 +46,7 @@ mod tests {
             .await
             .unwrap();
 
-        let ob = orm::find_by_id::<orm::DockerJob>(&mut sc, 1)
+        let ob = orm::find_by_id::<orm::docker_job::DockerJob>(&mut sc, 1)
             .await
             .expect("Error finding job");
         println!("ob: {:?}", ob);

@@ -3,6 +3,8 @@ use base64::{engine::general_purpose, Engine as _};
 use serde_json_any_key::*;
 use sqlx::{mysql::MySqlRow, Row};
 
+pub mod docker_job;
+
 const BIND_LIMIT: usize = 65535;
 
 pub trait ORMObject {
@@ -33,84 +35,6 @@ impl BaseObject {
             "description".to_string(),
             general_purpose::STANDARD.encode(description),
         ));
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum DockerJobWorkflowState {
-    Uninitialized,
-    Starting,
-    Ready,
-    Running,
-    Error,
-    Exited,
-    ResumeReady,
-}
-
-impl DockerJobWorkflowState {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Uninitialized => "UNINITIALIZED",
-            Self::Starting => "STARTING",
-            Self::Ready => "READY",
-            Self::Running => "RUNNING",
-            Self::Error => "ERROR",
-            Self::Exited => "EXITED",
-            Self::ResumeReady => "RESUME_READY",
-        }
-    }
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "UNINITIALIZED" => Self::Uninitialized,
-            "STARTING" => Self::Starting,
-            "READY" => Self::Ready,
-            "RUNNING" => Self::Running,
-            "ERROR" => Self::Error,
-            "EXITED" => Self::Exited,
-            "RESUME_READY" => Self::ResumeReady,
-            _ => panic!("Invalid workflow state"),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct DockerJob {
-    pub base: BaseObject,
-    pub id: i32,
-    pub workflow_state: DockerJobWorkflowState,
-}
-
-impl DockerJob {
-    pub fn set_workflow_state(&mut self, workflow_state: DockerJobWorkflowState) {
-        self.workflow_state = workflow_state.clone();
-        self.base._changeset.push((
-            "workflow_state".to_string(),
-            general_purpose::STANDARD.encode(workflow_state.as_str()),
-        ));
-    }
-}
-
-impl ORMObject for DockerJob {
-    fn get_id(&self) -> i32 {
-        self.id
-    }
-    fn get_changeset(&mut self) -> &mut Vec<(String, String)> {
-        &mut self.base._changeset
-    }
-    fn table_name() -> String {
-        String::from("docker_job")
-    }
-    fn new_from_row(row: MySqlRow) -> Self {
-        DockerJob {
-            base: BaseObject {
-                _changeset: Vec::new(),
-                metadata_id: row.get("metadata_id"),
-                name: row.get("name"),
-                description: row.get("description"),
-            },
-            id: row.get("id"),
-            workflow_state: DockerJobWorkflowState::from_str(row.get("workflow_state")),
-        }
     }
 }
 
@@ -153,7 +77,6 @@ pub async fn update<T: ORMObject>(
     let obid = ob.get_id();
     let changeset = ob.get_changeset();
     let changeset_json = format!("[{}]", changeset.to_json_map().unwrap());
-    println!("Changeset: {}", changeset_json);
     let result = sqlx::query(&query)
         .bind(obid)
         .bind(changeset_json)
