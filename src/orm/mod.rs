@@ -233,4 +233,27 @@ impl RealtimeMessage {
             Err(e) => Err(e.into()),
         }
     }
+
+    pub async fn send_to_ko(
+        sctx: &mut sctx::SecurityContext,
+        ko_id: i32,
+        ticket: String,
+        payload: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if payload.len() > 15360 {
+            return Err("Payload too large".into());
+        }
+        let query = "CALL sp_ko_send_realtime_message (?, ?, ?)";
+        let result = sqlx::query(query)
+            .bind(ko_id)
+            .bind(ticket)
+            .bind(payload)
+            .execute(&mut sctx.conn)
+            .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
