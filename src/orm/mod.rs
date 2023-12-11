@@ -245,8 +245,8 @@ impl RealtimeMessage {
         }
         let query = "CALL sp_ko_send_realtime_message (?, ?, ?)";
         let result = sqlx::query(query)
-            .bind(ko_id)
             .bind(ticket)
+            .bind(ko_id)
             .bind(payload)
             .execute(&mut sctx.conn)
             .await;
