@@ -1,12 +1,13 @@
 use crate::config;
 use crate::debug_println;
+use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Connection, Row};
 use std::env;
 
 pub struct SecurityContext {
     pub user_id: i32,
     pub auth_string: [String; 2],
-    pub conn: sqlx::MySqlConnection,
+    pub pool: sqlx::Pool<sqlx::MySql>,
 }
 
 impl SecurityContext {
@@ -17,16 +18,46 @@ impl SecurityContext {
         port: &i32,
         database: &str,
     ) -> Result<SecurityContext, Box<dyn std::error::Error>> {
-        let conn = sqlx::MySqlConnection::connect(&format!(
+        let connstr = format!(
             "mysql://{}:{}@{}:{}/{}",
             username, password, host, port, database
-        ))
-        .await?;
+        );
+        let pool = match MySqlPoolOptions::new()
+            .max_connections(1)
+            .test_before_acquire(false)
+            .before_acquire(|conn, meta| {
+                Box::pin(async move {
+                    if meta.idle_for.as_secs() > 15 {
+                        debug_println!("[sctx] Idle for more than 15 seconds, checking connection");
+                        let res = conn.ping().await;
+                        match res {
+                            Ok(_) => {
+                                debug_println!("[sctx] Connection is alive");
+                            }
+                            Err(e) => {
+                                debug_println!("[sctx] Connection is dead, Reconnecting... {}", e);
+                                return Ok(false);
+                            }
+                        }
+                    }
+
+                    Ok(true)
+                })
+            })
+            .connect(&connstr)
+            .await
+        {
+            Ok(pool) => pool,
+            Err(e) => {
+                debug_println!("[sctx] Error connecting to database: {}", e);
+                return Err(e.into());
+            }
+        };
         let auth_string = [username.to_string(), password.to_string()];
         Ok(SecurityContext {
             user_id: -1,
             auth_string,
-            conn,
+            pool,
         })
     }
 
@@ -50,7 +81,7 @@ impl SecurityContext {
         debug_println!("[sctx] Extending proxy account claim for {}", app_name);
         let row = sqlx::query("CALL sp_extend_proxy_account_claim(?)")
             .bind(app_name)
-            .execute(&mut self.conn)
+            .execute(&self.pool)
             .await;
 
         match row {
@@ -65,7 +96,7 @@ impl SecurityContext {
     pub async fn renew_id(&mut self) -> Result<i32, Box<dyn std::error::Error>> {
         debug_println!("[sctx] Renewing id");
         let row = sqlx::query("SELECT * FROM v_user")
-            .fetch_optional(&mut self.conn)
+            .fetch_optional(&self.pool)
             .await;
         match row {
             Ok(Some(row)) => {

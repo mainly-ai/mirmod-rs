@@ -50,7 +50,7 @@ pub async fn find_by_id<T: ORMObject>(
 
     let result = sqlx::query(&query)
         .bind(id)
-        .fetch_optional(&mut sctx.conn)
+        .fetch_optional(&sctx.pool)
         .await;
 
     match result {
@@ -80,7 +80,7 @@ pub async fn update<T: ORMObject>(
     let result = sqlx::query(&query)
         .bind(obid)
         .bind(changeset_json)
-        .execute(&mut sc.conn)
+        .execute(&sc.pool)
         .await;
 
     match result {
@@ -118,10 +118,7 @@ impl MirandaLog {
         id: i32,
     ) -> Result<MirandaLog, Box<dyn std::error::Error>> {
         let query = "SELECT * FROM v_miranda_log WHERE id = ?";
-        let result = sqlx::query(query)
-            .bind(id)
-            .fetch_optional(&mut sctx.conn)
-            .await;
+        let result = sqlx::query(query).bind(id).fetch_optional(&sctx.pool).await;
 
         match result {
             Ok(row) => match row {
@@ -152,7 +149,7 @@ impl MirandaLog {
             .bind(instance_id)
             .bind(tag)
             .bind(message)
-            .execute(&mut sctx.conn)
+            .execute(&sctx.pool)
             .await;
 
         match result {
@@ -176,10 +173,7 @@ impl RealtimeMessage {
         id: i32,
     ) -> Result<RealtimeMessage, Box<dyn std::error::Error>> {
         let query = "SELECT * FROM v_realtime_message WHERE id = ?";
-        let result = sqlx::query(query)
-            .bind(id)
-            .fetch_optional(&mut sctx.conn)
-            .await;
+        let result = sqlx::query(query).bind(id).fetch_optional(&sctx.pool).await;
 
         match result {
             Ok(row) => match row {
@@ -204,10 +198,7 @@ impl RealtimeMessage {
             return Err("Payload too large".into());
         }
         let query = "CALL sp_send_message_to_processor (?)";
-        let result = sqlx::query(query)
-            .bind(payload)
-            .execute(&mut sctx.conn)
-            .await;
+        let result = sqlx::query(query).bind(payload).execute(&sctx.pool).await;
 
         match result {
             Ok(_) => Ok(()),
@@ -223,10 +214,7 @@ impl RealtimeMessage {
             return Err("Payload too large".into());
         }
         let query = "CALL sp_user_send_realtime_message (?)";
-        let result = sqlx::query(query)
-            .bind(payload)
-            .execute(&mut sctx.conn)
-            .await;
+        let result = sqlx::query(query).bind(payload).execute(&sctx.pool).await;
 
         match result {
             Ok(_) => Ok(()),
@@ -248,7 +236,7 @@ impl RealtimeMessage {
             .bind(ticket)
             .bind(ko_id)
             .bind(payload)
-            .execute(&mut sctx.conn)
+            .execute(&sctx.pool)
             .await;
 
         match result {
