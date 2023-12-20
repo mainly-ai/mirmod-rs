@@ -1,4 +1,4 @@
-use crate::sctx;
+use crate::{debug_println, sctx};
 use base64::{engine::general_purpose, Engine as _};
 use serde_json_any_key::*;
 use sqlx::{mysql::MySqlRow, Row};
@@ -43,10 +43,10 @@ pub async fn find_by_id<T: ORMObject>(
     id: i32,
 ) -> Result<T, Box<dyn std::error::Error>> {
     let table_name = T::table_name();
-    println!("Table name: {}", table_name);
+    debug_println!("Table name: {}", table_name);
 
     let query = format!("SELECT * FROM v_{} WHERE id = ?", table_name);
-    println!("Query: {}", query);
+    debug_println!("Query: {}", query);
 
     let result = sqlx::query(&query)
         .bind(id)
@@ -57,12 +57,12 @@ pub async fn find_by_id<T: ORMObject>(
         Ok(row) => match row {
             Some(row) => Ok(T::new_from_row(row)),
             None => {
-                println!("No row found");
+                debug_println!("No row found");
                 Err("No row found".into())
             }
         },
         Err(e) => {
-            println!("Error: {}", e);
+            debug_println!("Error: {}", e);
             Err(e.into())
         }
     }
