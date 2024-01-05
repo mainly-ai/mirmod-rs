@@ -77,6 +77,7 @@ pub async fn update<T: ORMObject>(
     let obid = ob.get_id();
     let changeset = ob.get_changeset();
     let changeset_json = format!("[{}]", changeset.to_json_map().unwrap());
+    debug_println!("changeset {} {}", query, changeset_json);
     let result = sqlx::query(&query)
         .bind(obid)
         .bind(changeset_json)

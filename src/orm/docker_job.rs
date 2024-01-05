@@ -61,34 +61,30 @@ impl DockerJob {
 
     pub fn set_cpu_seconds(&mut self, cpu_seconds: f32) {
         self.cpu_seconds = cpu_seconds;
-        self.base._changeset.push((
-            "cpu_seconds".to_string(),
-            general_purpose::STANDARD.encode(cpu_seconds.to_string()),
-        ));
+        self.base
+            ._changeset
+            .push(("cpu_seconds".to_string(), cpu_seconds.to_string()));
     }
 
     pub fn set_ram_gb_seconds(&mut self, ram_gb_seconds: f32) {
         self.ram_gb_seconds = ram_gb_seconds;
-        self.base._changeset.push((
-            "ram_gb_seconds".to_string(),
-            general_purpose::STANDARD.encode(ram_gb_seconds.to_string()),
-        ));
+        self.base
+            ._changeset
+            .push(("ram_gb_seconds".to_string(), ram_gb_seconds.to_string()));
     }
 
     pub fn set_net_tx_gb(&mut self, net_tx_gb: f32) {
         self.net_tx_gb = net_tx_gb;
-        self.base._changeset.push((
-            "net_tx_gb".to_string(),
-            general_purpose::STANDARD.encode(net_tx_gb.to_string()),
-        ));
+        self.base
+            ._changeset
+            .push(("net_tx_gb".to_string(), net_tx_gb.to_string()));
     }
 
     pub fn set_net_rx_gb(&mut self, net_rx_gb: f32) {
         self.net_rx_gb = net_rx_gb;
-        self.base._changeset.push((
-            "net_rx_gb".to_string(),
-            general_purpose::STANDARD.encode(net_rx_gb.to_string()),
-        ));
+        self.base
+            ._changeset
+            .push(("net_rx_gb".to_string(), net_rx_gb.to_string()));
     }
 }
 
