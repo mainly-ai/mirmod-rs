@@ -8,6 +8,7 @@ pub struct SecurityContext {
     pub user_id: i32,
     pub auth_string: [String; 2],
     pub pool: sqlx::Pool<sqlx::MySql>,
+    pub is_admin: bool,
 }
 
 impl SecurityContext {
@@ -58,7 +59,12 @@ impl SecurityContext {
             user_id: -1,
             auth_string,
             pool,
+            is_admin: false,
         })
+    }
+
+    pub fn set_admin(&mut self, is_admin: bool) {
+        self.is_admin = is_admin;
     }
 
     pub async fn new_from_config(
@@ -95,6 +101,9 @@ impl SecurityContext {
 
     pub async fn renew_id(&mut self) -> Result<i32, Box<dyn std::error::Error>> {
         debug_println!("[sctx] Renewing id");
+        if self.is_admin {
+            return Ok(-1);
+        }
         let row = sqlx::query("SELECT * FROM v_user")
             .fetch_optional(&self.pool)
             .await;

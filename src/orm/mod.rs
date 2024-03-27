@@ -1,42 +1,164 @@
 use crate::{debug_println, sctx};
 use base64::{engine::general_purpose, Engine as _};
+use paste::paste;
 use serde_json_any_key::*;
 use sqlx::{mysql::MySqlRow, Row};
 
 pub mod docker_job;
+pub use docker_job::DockerJob;
+
+pub mod knowledge_object;
+pub use knowledge_object::KnowledgeObject;
 
 const BIND_LIMIT: usize = 65535;
 
+pub trait ORMUpdatableFieldValue {
+    fn get_changeset_value(&self) -> String;
+}
+
+impl ORMUpdatableFieldValue for String {
+    fn get_changeset_value(&self) -> String {
+        general_purpose::STANDARD.encode(self.clone())
+    }
+}
+
+impl ORMUpdatableFieldValue for i32 {
+    fn get_changeset_value(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl ORMUpdatableFieldValue for i64 {
+    fn get_changeset_value(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl ORMUpdatableFieldValue for f32 {
+    fn get_changeset_value(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl ORMUpdatableFieldValue for f64 {
+    fn get_changeset_value(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl ORMUpdatableFieldValue for bool {
+    fn get_changeset_value(&self) -> String {
+        if *self == true {
+            "1".to_string()
+        } else {
+            "0".to_string()
+        }
+    }
+}
+
+impl ORMUpdatableFieldValue for serde_json::Value {
+    fn get_changeset_value(&self) -> String {
+        self.to_string()
+    }
+}
+
 pub trait ORMObject {
-    fn get_id(&self) -> i32;
+    fn id(&self) -> i32;
+    fn metadata_id(&self) -> i32;
+    fn name(&self) -> String;
+    fn set_name(&mut self, name: String);
+    fn description(&self) -> Option<String>;
+    fn set_description(&mut self, description: String);
     fn get_changeset(&mut self) -> &mut Vec<(String, String)>;
     fn table_name() -> String;
     fn new_from_row(row: MySqlRow) -> Self;
 }
 
-#[derive(Debug)]
-pub struct BaseObject {
-    _changeset: Vec<(String, String)>,
-    metadata_id: i32,
-    name: String,
-    description: Option<String>,
+macro_rules! orm_object_getter {
+    ($name:ident, $field:ident, $type:ty) => {
+        pub fn $field(&self) -> $type {
+            self.$field.clone()
+        }
+    };
 }
+pub(crate) use orm_object_getter;
 
-impl BaseObject {
-    fn set_name(&mut self, name: String) {
-        self.name = name.clone();
-        self._changeset
-            .push(("name".to_string(), general_purpose::STANDARD.encode(name)));
-    }
-
-    fn set_description(&mut self, description: String) {
-        self.description = Some(description.clone());
-        self._changeset.push((
-            "description".to_string(),
-            general_purpose::STANDARD.encode(description),
-        ));
-    }
+macro_rules! orm_object_setter {
+    ($name:ident, $field:ident, $type:ty) => {
+        paste! {
+            pub fn [< set_ $field >] (&mut self, $field: $type) {
+                self.$field = $field.clone();
+                let value = $field.get_changeset_value();
+                self._changeset.push((stringify!($field).to_string(), value));
+            }
+        }
+    };
 }
+pub(crate) use orm_object_setter;
+
+macro_rules! impl_orm_object {
+    ($name:ident, $table_name:expr, $($field:ident: $type:ty),*) => {
+        #[derive(Debug)]
+        pub struct $name {
+            _changeset: Vec<(String, String)>,
+            id: i32,
+            metadata_id: i32,
+            name: String,
+            description: Option<String>,
+            $($field: $type),*
+        }
+
+        impl ORMObject for $name {
+            fn get_changeset(&mut self) -> &mut Vec<(String, String)> {
+                &mut self._changeset
+            }
+
+            fn table_name() -> String {
+                $table_name.to_string()
+            }
+
+            fn id(&self) -> i32 {
+                self.id
+            }
+
+            fn metadata_id(&self) -> i32 {
+                self.metadata_id
+            }
+            fn name(&self) -> String {
+                self.name.clone()
+            }
+            fn set_name(&mut self, name: String) {
+                self.name = name.clone();
+                self._changeset.push(("name".to_string(), general_purpose::STANDARD.encode(name)));
+            }
+            fn description(&self) -> Option<String> {
+                self.description.clone()
+            }
+            fn set_description(&mut self, description: String) {
+                self.description = Some(description.clone());
+                self._changeset.push(("description".to_string(), general_purpose::STANDARD.encode(description)));
+            }
+            fn new_from_row(row: MySqlRow) -> Self {
+                $name {
+                    _changeset: Vec::new(),
+                    id: row.get("id"),
+                    metadata_id: row.get("metadata_id"),
+                    name: row.get("name"),
+                    description: row.get("description"),
+                    $($field: row.try_get_unchecked(stringify!($field)).expect("uh oh")),*
+                }
+            }
+        }
+
+        impl $name {
+            $(
+                orm_object_getter!($name, $field, $type);
+                orm_object_setter!($name, $field, $type);
+            )*
+        }
+    };
+}
+pub(crate) use impl_orm_object;
 
 pub async fn find_by_id<T: ORMObject>(
     sctx: &mut sctx::SecurityContext,
@@ -74,7 +196,7 @@ pub async fn update<T: ORMObject>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let table_name = T::table_name();
     let query = format!("CALL sp_update_{} (?, ?)", table_name);
-    let obid = ob.get_id();
+    let obid = ob.id();
     let changeset = ob.get_changeset();
     let changeset_json = format!("[{}]", changeset.to_json_map().unwrap());
     debug_println!("changeset {} {}", query, changeset_json);
