@@ -19,6 +19,12 @@ impl ORMUpdatableFieldValue for WorkflowState {
     }
 }
 
+impl WorkflowState {
+    pub fn as_str(&self) -> String {
+        format!("{:?}", self).to_uppercase()
+    }
+}
+
 impl_orm_object!(
     DockerJob,
     "docker_job",

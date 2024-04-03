@@ -450,7 +450,10 @@ impl RealtimeMessage {
                 via: row.get(1),
                 sent_by: row.get(2),
                 sent_for: row.get(3),
-                ticket: row.get(4),
+                ticket: match row.try_get(4) {
+                    Ok(ticket) => ticket,
+                    Err(_) => "".to_string(),
+                },
                 payload: row.get(5),
                 created_at: row.get(6),
             });
