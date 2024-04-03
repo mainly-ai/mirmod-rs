@@ -4,6 +4,7 @@ use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Connection, Row};
 use std::env;
 
+#[derive(Clone)]
 pub struct SecurityContext {
     pub user_id: i32,
     pub auth_string: [String; 2],
@@ -110,7 +111,7 @@ impl SecurityContext {
         match row {
             Ok(Some(row)) => {
                 self.user_id = row.get::<i32, &str>("id");
-                println!("[sctx] id={}", self.user_id);
+                debug_println!("[sctx] id={}", self.user_id);
                 if self.auth_string[0].starts_with("pxy.") {
                     let claim = self.extend_proxy_account_claim().await;
                     match claim {

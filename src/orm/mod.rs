@@ -62,6 +62,18 @@ impl ORMUpdatableFieldValue for serde_json::Value {
     }
 }
 
+impl<T> ORMUpdatableFieldValue for Option<T>
+where
+    T: ORMUpdatableFieldValue,
+{
+    fn get_changeset_value(&self) -> String {
+        match self {
+            Some(value) => value.get_changeset_value(),
+            None => "NULL".to_string(),
+        }
+    }
+}
+
 pub trait ORMObject {
     fn id(&self) -> i32;
     fn metadata_id(&self) -> i32;
@@ -175,6 +187,8 @@ pub async fn find_by_id<T: ORMObject>(
         .fetch_optional(&sctx.pool)
         .await;
 
+    debug_println!("Result: {:?}", result);
+
     match result {
         Ok(row) => match row {
             Some(row) => Ok(T::new_from_row(row)),
@@ -282,12 +296,60 @@ impl MirandaLog {
     }
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct RealtimeMessage {
-    id: i32,
-    sent_by: String,
-    sent_for: String,
-    payload: String,
-    created_at: sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>,
+    #[serde(rename = "v_id")]
+    pub id: i32,
+    #[serde(rename = "v_via")]
+    pub via: String,
+    #[serde(rename = "v_by")]
+    pub sent_by: String,
+    #[serde(rename = "v_for")]
+    pub sent_for: String,
+    #[serde(rename = "v_payload")]
+    pub payload: String,
+    #[serde(rename = "v_ticket")]
+    pub ticket: String,
+    #[serde(rename = "v_created_at")]
+    pub created_at: sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RealtimeMessageTicket {
+    pub ticket: String,
+    pub ko_id: i32,
+    pub creator_user_id: i32,
+    pub created_at: sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>,
+}
+
+impl RealtimeMessageTicket {
+    pub async fn new_from_ticket(
+        sctx: &mut sctx::SecurityContext,
+        ticket: String,
+    ) -> Result<RealtimeMessageTicket, Box<dyn std::error::Error>> {
+        if sctx.is_admin != true {
+            return Err("Admin context required".into());
+        }
+
+        let query = "SELECT * FROM realtime_message_ticket WHERE ticket = ?";
+        let result = sqlx::query(query)
+            .bind(ticket)
+            .fetch_optional(&sctx.pool)
+            .await;
+
+        match result {
+            Ok(row) => match row {
+                Some(row) => Ok(RealtimeMessageTicket {
+                    ticket: row.get("ticket"),
+                    ko_id: row.get("ko_id"),
+                    creator_user_id: row.get("creator_user_id"),
+                    created_at: row.get("created_at"),
+                }),
+                None => Err("No row found".into()),
+            },
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 impl RealtimeMessage {
@@ -302,9 +364,11 @@ impl RealtimeMessage {
             Ok(row) => match row {
                 Some(row) => Ok(RealtimeMessage {
                     id: row.get("id"),
+                    via: row.get("via"),
                     sent_by: row.get("sent_by"),
                     sent_for: row.get("sent_for"),
                     payload: row.get("payload"),
+                    ticket: row.get("ticket"),
                     created_at: row.get("created_at"),
                 }),
                 None => Err("No row found".into()),
@@ -366,5 +430,32 @@ impl RealtimeMessage {
             Ok(_) => Ok(()),
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub async fn consume_queue(
+        sctx: &mut sctx::SecurityContext,
+        count: i32,
+    ) -> Result<Vec<RealtimeMessage>, Box<dyn std::error::Error>> {
+        if sctx.is_admin != true {
+            return Err("Admin context required".into());
+        }
+
+        let query = "CALL sp_consume_realtime_message_queue (?)";
+        let result = sqlx::query(query).bind(count).fetch_all(&sctx.pool).await;
+        let mut messages = Vec::new();
+        for row in result? {
+            // sqlx does not support getting by column name from rows returned by stored procedures
+            messages.push(RealtimeMessage {
+                id: row.get(0),
+                via: row.get(1),
+                sent_by: row.get(2),
+                sent_for: row.get(3),
+                ticket: row.get(4),
+                payload: row.get(5),
+                created_at: row.get(6),
+            });
+        }
+
+        Ok(messages)
     }
 }

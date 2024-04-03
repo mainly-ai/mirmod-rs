@@ -88,6 +88,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_orm_ko() {
+        let token = String::from(TEST_TOKEN);
+
+        let config = config::MirandaConfig::new_from_default()
+            .unwrap()
+            .merge_into_new(config::PartialMirandaConfig::new_from_token_string(token).unwrap())
+            .unwrap();
+
+        let mut sc = sctx::SecurityContext::new_from_config(config)
+            .await
+            .unwrap();
+
+        let mut ob = orm::find_by_id::<orm::KnowledgeObject>(&mut sc, 1)
+            .await
+            .expect("Error finding KO");
+
+        println!("Found KO: {:?}", ob);
+    }
+
+    #[tokio::test]
     async fn test_hashcookie() {
         let config = config::MirandaConfig::new_from_default().unwrap();
         let mut sctx = sctx::SecurityContext::new_from_config(config)
