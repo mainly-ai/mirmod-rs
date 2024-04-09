@@ -4,7 +4,7 @@ use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Connection, Row};
 use std::env;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SecurityContext {
     pub user_id: i32,
     pub auth_string: [String; 2],
