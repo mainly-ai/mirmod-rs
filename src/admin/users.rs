@@ -1,4 +1,4 @@
-use sqlx::{mysql, types::chrono};
+use sqlx::{mysql, types::chrono, MySql, Pool};
 
 use crate::{debug_println, sctx};
 
@@ -42,7 +42,7 @@ WHERE d.email = ?",
 }
 
 pub async fn find_user_by_username(
-    sctx: &mut sctx::SecurityContext,
+    pool: &Pool<MySql>,
     username: &str,
 ) -> Result<User, sqlx::Error> {
     sqlx::query_as::<_, User>(
@@ -63,6 +63,6 @@ INNER JOIN miranda_web.web_users w on w.username = u.username
 WHERE u.username = ?",
     )
     .bind(username)
-    .fetch_one(&sctx.pool)
+    .fetch_one(pool)
     .await
 }

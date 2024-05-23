@@ -24,6 +24,10 @@ pub struct HashCookieTokenPayload {
 impl HashCookieTokenPayload {
     pub fn new(token: String) -> Result<HashCookieTokenPayload, Box<dyn std::error::Error>> {
         // exp.b64(username).b64(payload).b64(signature)
+        if token.starts_with('"') && token.ends_with('"') {
+            let token = token[1..token.len() - 1].to_string();
+            return HashCookieTokenPayload::new(token);
+        }
         let parts: Vec<&str> = token.split('.').collect();
         if parts.len() < 3 {
             return Err("Invalid token".into());
