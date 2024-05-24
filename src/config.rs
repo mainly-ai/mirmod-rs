@@ -7,6 +7,7 @@ pub struct MirandaConfig {
     pub user: String,
     pub password: String,
     pub database: String,
+    pub max_pool_connections: Option<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -16,6 +17,7 @@ pub struct PartialMirandaConfig {
     pub user: Option<String>,
     pub password: Option<String>,
     pub database: Option<String>,
+    pub max_pool_connections: Option<u32>,
 }
 
 impl MirandaConfig {
@@ -69,6 +71,9 @@ impl MirandaConfig {
         if let Some(database) = other.database {
             new_config.database = database;
         }
+        if let Some(max_pool_connections) = other.max_pool_connections {
+            new_config.max_pool_connections = Some(max_pool_connections);
+        }
         Ok(new_config)
     }
 }
@@ -81,6 +86,7 @@ impl PartialMirandaConfig {
             user: None,
             password: None,
             database: None,
+            max_pool_connections: None,
         }
     }
 
@@ -91,6 +97,7 @@ impl PartialMirandaConfig {
             host: None,
             port: None,
             database: None,
+            max_pool_connections: None,
         }
     }
 
@@ -126,6 +133,9 @@ impl PartialMirandaConfig {
         }
         if let Some(database) = other.database {
             new_config.database = Some(database);
+        }
+        if let Some(max_pool_connections) = other.max_pool_connections {
+            new_config.max_pool_connections = Some(max_pool_connections);
         }
         Ok(new_config)
     }

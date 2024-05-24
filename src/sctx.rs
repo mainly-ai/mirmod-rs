@@ -19,13 +19,14 @@ impl SecurityContext {
         host: &str,
         port: &i32,
         database: &str,
+        max_pool_connections: u32,
     ) -> Result<SecurityContext, Box<dyn std::error::Error>> {
         let connstr = format!(
             "mysql://{}:{}@{}:{}/{}",
             username, password, host, port, database
         );
         let pool = match MySqlPoolOptions::new()
-            .max_connections(1)
+            .max_connections(max_pool_connections)
             .test_before_acquire(false)
             .before_acquire(|conn, meta| {
                 Box::pin(async move {
@@ -78,6 +79,7 @@ impl SecurityContext {
             &config.host,
             &port,
             &config.database,
+            config.max_pool_connections.unwrap_or(1),
         )
         .await?;
         Ok(sc)
