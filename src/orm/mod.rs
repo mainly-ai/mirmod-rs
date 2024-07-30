@@ -381,9 +381,6 @@ impl RealtimeMessage {
         sctx: &mut sctx::SecurityContext,
         payload: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if payload.len() > 15360 {
-            return Err("Payload too large".into());
-        }
         let query = "CALL sp_send_message_to_processor (?)";
         let result = sqlx::query(query).bind(payload).execute(&sctx.pool).await;
 
@@ -397,9 +394,6 @@ impl RealtimeMessage {
         sctx: &mut sctx::SecurityContext,
         payload: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if payload.len() > 15360 {
-            return Err("Payload too large".into());
-        }
         let query = "CALL sp_user_send_realtime_message (?)";
         let result = sqlx::query(query).bind(payload).execute(&sctx.pool).await;
 
@@ -415,9 +409,6 @@ impl RealtimeMessage {
         ticket: String,
         payload: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if payload.len() > 15360 {
-            return Err("Payload too large".into());
-        }
         let query = "CALL sp_ko_send_realtime_message (?, ?, ?)";
         let result = sqlx::query(query)
             .bind(ticket)
