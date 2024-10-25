@@ -29,8 +29,17 @@ impl_orm_object!(
     DockerJob,
     "docker_job",
     workflow_state: WorkflowState,
+    gpu_capacity: f32,
     cpu_seconds: f32,
+    current_cpu: f32,
+    cpu_capacity: f32,
     ram_gb_seconds: f32,
+    current_ram_gb: f32,
+    ram_gb_capacity: f32,
+    net_rx_gb: f32,
+    current_net_rx_gb: f32,
     net_tx_gb: f32,
-    net_rx_gb: f32
+    current_net_tx_gb: f32,
+    total_cost: f32,
+    crg_id: Option<i32>
 );

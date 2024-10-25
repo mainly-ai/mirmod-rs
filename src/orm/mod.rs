@@ -4,11 +4,17 @@ use paste::paste;
 use serde_json_any_key::*;
 use sqlx::{mysql::MySqlRow, Row};
 
+pub use bigdecimal;
+pub use sqlx::types::BigDecimal;
+
 pub mod docker_job;
 pub use docker_job::DockerJob;
 
 pub mod knowledge_object;
 pub use knowledge_object::KnowledgeObject;
+
+pub mod crg;
+pub use crg::ComputeResourceGroup;
 
 const BIND_LIMIT: usize = 65535;
 
@@ -53,6 +59,12 @@ impl ORMUpdatableFieldValue for bool {
         } else {
             "0".to_string()
         }
+    }
+}
+
+impl ORMUpdatableFieldValue for BigDecimal {
+    fn get_changeset_value(&self) -> String {
+        self.to_string()
     }
 }
 
@@ -451,5 +463,23 @@ impl RealtimeMessage {
         }
 
         Ok(messages)
+    }
+}
+
+pub async fn transact_credits(
+    sctx: &mut sctx::SecurityContext,
+    amount: BigDecimal,
+    statement: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let query = "CALL sp_transact_credits (NULL, ?, ?)";
+    let result = sqlx::query(query)
+        .bind(amount)
+        .bind(statement)
+        .execute(&sctx.pool)
+        .await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.into()),
     }
 }
