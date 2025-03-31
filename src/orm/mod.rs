@@ -501,8 +501,10 @@ pub async fn wait_for_cdc_event(
 
     match result {
         Ok(_) => false,
-        Err(e) => e
-            .to_string()
-            .contains("Lost connection to MySQL server during query"),
+        Err(e) => {
+            debug_println!("📜 wait_for_cdc_event error: {}", e);
+            e.to_string()
+                .contains("error communicating with database: unexpected end of file")
+        }
     }
 }
