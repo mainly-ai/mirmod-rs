@@ -483,3 +483,26 @@ pub async fn transact_credits(
         Err(e) => Err(e.into()),
     }
 }
+
+pub async fn wait_for_cdc_event(
+    sctx: &mut sctx::SecurityContext,
+    event: String,
+    seconds: i32,
+) -> bool {
+    // SELECT /* WAITING_FOR_EVENT ({}) */ SLEEP({})".format(event,s)
+    // if query is killed (2013: Lost connection to MySQL server during query), return true
+    // otherwise, false
+
+    let query = format!(
+        "SELECT /* WAITING_FOR_EVENT ({}) */ SLEEP({})",
+        event, seconds
+    );
+    let result = sqlx::query(&query).execute(&sctx.pool).await;
+
+    match result {
+        Ok(_) => false,
+        Err(e) => e
+            .to_string()
+            .contains("Lost connection to MySQL server during query"),
+    }
+}
