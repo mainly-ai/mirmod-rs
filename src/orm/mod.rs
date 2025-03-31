@@ -508,3 +508,31 @@ pub async fn wait_for_cdc_event(
         }
     }
 }
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+pub struct WOBMessage {
+    pub id: i32,
+    pub wob_id: i32,
+    pub wob_type: String,
+    pub priority: i32,
+    pub target: String,
+    pub user: String,
+    pub payload: String,
+    pub read_ts: Option<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>>,
+    pub write_ts: Option<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>>,
+}
+
+impl WOBMessage {
+    pub async fn consume_queue(
+        sctx: &mut sctx::SecurityContext,
+        target: String,
+    ) -> Result<Vec<WOBMessage>, Box<dyn std::error::Error>> {
+        let query = "CALL get_wob_message (?)";
+        let rows = sqlx::query_as::<_, WOBMessage>(query)
+            .bind(target)
+            .fetch_all(&sctx.pool)
+            .await?;
+
+        Ok(rows)
+    }
+}
