@@ -23,3 +23,4 @@ aes = "0.8.4"
 chacha20 = "0.9.1"
 chrono = { version = "0.4", features = ["serde"] }
 bigdecimal = "*"
+mysql_async = "0.35.1"

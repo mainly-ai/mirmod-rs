@@ -1,11 +1,11 @@
 use crate::{debug_println, sctx};
 use base64::{engine::general_purpose, Engine as _};
+pub use bigdecimal;
+use mysql_async::{prelude::Queryable, Conn, Opts};
 use paste::paste;
 use serde_json_any_key::*;
-use sqlx::{mysql::MySqlRow, Row};
-
-pub use bigdecimal;
 pub use sqlx::types::BigDecimal;
+use sqlx::{mysql::MySqlRow, Row};
 
 pub mod docker_job;
 pub use docker_job::DockerJob;
@@ -493,11 +493,20 @@ pub async fn wait_for_cdc_event(
     // if query is killed (2013: Lost connection to MySQL server during query), return true
     // otherwise, false
 
+    let conf = Opts::from_url(&sctx.constr).unwrap();
+    let mut conn = match Conn::new(conf).await {
+        Ok(conn) => conn,
+        Err(e) => {
+            debug_println!("📜 wait_for_cdc_event error: {}", e);
+            return false;
+        }
+    };
+
     let query = format!(
         "SELECT /* WAITING_FOR_EVENT ({}) */ SLEEP({})",
         event, seconds
     );
-    let result = sqlx::raw_sql(&query).execute(&sctx.pool).await;
+    let result = conn.query_drop(&query).await;
     debug_println!("wait_for_cdc_event result: {:?}", result);
 
     match result {

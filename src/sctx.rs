@@ -1,8 +1,10 @@
 use crate::config;
 use crate::debug_println;
+use sqlx::mysql::MySqlConnection;
 use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Connection, Row};
 use std::env;
+use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub struct SecurityContext {
@@ -10,6 +12,7 @@ pub struct SecurityContext {
     pub auth_string: [String; 2],
     pub pool: sqlx::Pool<sqlx::MySql>,
     pub is_admin: bool,
+    pub constr: String,
 }
 
 impl SecurityContext {
@@ -30,7 +33,7 @@ impl SecurityContext {
             .test_before_acquire(false)
             .before_acquire(|conn, meta| {
                 Box::pin(async move {
-                    if meta.idle_for.as_secs() > 15 {
+                    if meta.idle_for.as_secs() > 60 {
                         debug_println!("[sctx] Idle for more than 15 seconds, checking connection");
                         let res = conn.ping().await;
                         match res {
@@ -62,6 +65,7 @@ impl SecurityContext {
             auth_string,
             pool,
             is_admin: false,
+            constr: connstr,
         })
     }
 
@@ -130,5 +134,12 @@ impl SecurityContext {
             }
             Err(e) => Err(e.into()),
         }
+    }
+
+    pub async fn create_single_connection(
+        &self,
+    ) -> std::result::Result<MySqlConnection, sqlx::Error> {
+        // create a connection without using a pool
+        MySqlConnection::connect(&self.constr).await
     }
 }
