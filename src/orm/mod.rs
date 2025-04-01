@@ -526,13 +526,23 @@ impl WOBMessage {
     pub async fn consume_queue(
         sctx: &mut sctx::SecurityContext,
         target: String,
+        id: Option<i32>,
     ) -> Result<Vec<WOBMessage>, Box<dyn std::error::Error>> {
-        let query = "CALL get_wob_message (?)";
-        let rows = sqlx::query_as::<_, WOBMessage>(query)
-            .bind(target)
-            .fetch_all(&sctx.pool)
-            .await?;
-
-        Ok(rows)
+        if id.is_some() {
+            let query = "CALL get_wob_message_for_target_by_id (?, ?)";
+            let rows = sqlx::query_as::<_, WOBMessage>(query)
+                .bind(target)
+                .bind(id.unwrap())
+                .fetch_all(&sctx.pool)
+                .await?;
+            Ok(rows)
+        } else {
+            let query = "CALL get_wob_message (?)";
+            let rows = sqlx::query_as::<_, WOBMessage>(query)
+                .bind(target)
+                .fetch_all(&sctx.pool)
+                .await?;
+            Ok(rows)
+        }
     }
 }
