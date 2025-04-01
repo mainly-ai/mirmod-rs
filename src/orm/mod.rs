@@ -498,13 +498,13 @@ pub async fn wait_for_cdc_event(
         event, seconds
     );
     let result = sqlx::raw_sql(&query).execute(&sctx.pool).await;
+    debug_println!("wait_for_cdc_event result: {:?}", result);
 
     match result {
         Ok(_) => false,
         Err(e) => {
             debug_println!("📜 wait_for_cdc_event error: {}", e);
-            e.to_string()
-                .contains("error communicating with database: unexpected end of file")
+            e.to_string().contains("error communicating with database")
         }
     }
 }
@@ -517,7 +517,7 @@ pub struct WOBMessage {
     pub priority: i32,
     pub target: String,
     pub user: String,
-    pub payload: String,
+    pub payload: serde_json::Value,
     pub read_ts: Option<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>>,
     pub write_ts: Option<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>>,
 }
@@ -535,6 +535,7 @@ impl WOBMessage {
                 .bind(id.unwrap())
                 .fetch_all(&sctx.pool)
                 .await?;
+            debug_println!("rows: {:?}", rows);
             let mut messages = Vec::new();
             for row in rows {
                 messages.push(WOBMessage {
