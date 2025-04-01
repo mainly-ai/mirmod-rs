@@ -497,7 +497,7 @@ pub async fn wait_for_cdc_event(
         "SELECT /* WAITING_FOR_EVENT ({}) */ SLEEP({})",
         event, seconds
     );
-    let result = sqlx::query(&query).execute(&sctx.pool).await;
+    let result = sqlx::raw_sql(&query).execute(&sctx.pool).await;
 
     match result {
         Ok(_) => false,
@@ -530,19 +530,47 @@ impl WOBMessage {
     ) -> Result<Vec<WOBMessage>, Box<dyn std::error::Error>> {
         if id.is_some() {
             let query = "CALL get_wob_message_for_target_by_id (?, ?)";
-            let rows = sqlx::query_as::<_, WOBMessage>(query)
+            let rows = sqlx::query(query)
                 .bind(target)
                 .bind(id.unwrap())
                 .fetch_all(&sctx.pool)
                 .await?;
-            Ok(rows)
+            let mut messages = Vec::new();
+            for row in rows {
+                messages.push(WOBMessage {
+                    id: row.get(0),
+                    wob_id: row.get(1),
+                    wob_type: row.get(2),
+                    payload: row.get(3),
+                    priority: row.get(4),
+                    write_ts: row.get(5),
+                    read_ts: row.get(6),
+                    target: row.get(7),
+                    user: row.get(8),
+                });
+            }
+            Ok(messages)
         } else {
             let query = "CALL get_wob_message (?)";
-            let rows = sqlx::query_as::<_, WOBMessage>(query)
+            let rows = sqlx::query(query)
                 .bind(target)
                 .fetch_all(&sctx.pool)
                 .await?;
-            Ok(rows)
+            let mut messages = Vec::new();
+            for row in rows {
+                messages.push(WOBMessage {
+                    id: row.get(0),
+                    wob_id: row.get(1),
+                    wob_type: row.get(2),
+                    payload: row.get(3),
+                    priority: row.get(4),
+                    write_ts: row.get(5),
+                    read_ts: row.get(6),
+                    target: row.get(7),
+                    user: row.get(8),
+                });
+            }
+            Ok(messages)
         }
     }
 }
