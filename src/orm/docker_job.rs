@@ -11,6 +11,7 @@ pub enum WorkflowState {
     Running,
     Error,
     Exited,
+    Restarting,
 }
 
 impl ORMUpdatableFieldValue for WorkflowState {
