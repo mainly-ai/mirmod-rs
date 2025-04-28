@@ -16,6 +16,9 @@ pub use knowledge_object::KnowledgeObject;
 pub mod crg;
 pub use crg::ComputeResourceGroup;
 
+pub mod storage_policy;
+pub use storage_policy::StoragePolicy;
+
 const BIND_LIMIT: usize = 65535;
 
 pub trait ORMUpdatableFieldValue {
@@ -93,6 +96,8 @@ pub trait ORMObject {
     fn set_name(&mut self, name: String);
     fn description(&self) -> Option<String>;
     fn set_description(&mut self, description: String);
+    fn deleted(&self) -> bool;
+    fn set_deleted(&mut self, deleted: bool);
     fn get_changeset(&mut self) -> &mut Vec<(String, String)>;
     fn table_name() -> String;
     fn new_from_row(row: MySqlRow) -> Self;
@@ -129,6 +134,7 @@ macro_rules! impl_orm_object {
             metadata_id: i32,
             name: String,
             description: Option<String>,
+            deleted: bool,
             $($field: $type),*
         }
 
@@ -162,6 +168,13 @@ macro_rules! impl_orm_object {
                 self.description = Some(description.clone());
                 self._changeset.push(("description".to_string(), general_purpose::STANDARD.encode(description)));
             }
+            fn deleted(&self) -> bool {
+                self.deleted
+            }
+            fn set_deleted(&mut self, deleted: bool) {
+                self.deleted = deleted;
+                self._changeset.push(("deleted".to_string(), deleted.to_string()));
+            }
             fn new_from_row(row: MySqlRow) -> Self {
                 $name {
                     _changeset: Vec::new(),
@@ -169,6 +182,7 @@ macro_rules! impl_orm_object {
                     metadata_id: row.get("metadata_id"),
                     name: row.get("name"),
                     description: row.get("description"),
+                    deleted: row.get("deleted"),
                     $($field: row.try_get_unchecked(stringify!($field)).expect("uh oh")),*
                 }
             }
@@ -238,6 +252,45 @@ pub async fn update<T: ORMObject>(
             Ok(())
         }
         Err(e) => Err(e.into()),
+    }
+}
+
+pub async fn delete<T: ORMObject>(
+    sc: &mut sctx::SecurityContext,
+    ob: &mut T,
+    delete_children: bool,
+    hard_delete: bool,
+) -> Result<u64, Box<dyn std::error::Error>> {
+    let table_name = T::table_name();
+
+    // Cascading delete by metadata_id
+    if delete_children {
+        let proc = if hard_delete {
+            format!("sp_delete_graph_by_mid")
+        } else {
+            format!("sp_soft_delete_graph_by_mid")
+        };
+        let query = format!("CALL {}(?)", proc);
+        let result = sqlx::query(&query)
+            .bind(ob.metadata_id())
+            .execute(&sc.pool)
+            .await?;
+        return Ok(result.rows_affected());
+    }
+
+    // Hard/soft delete by metadata_id
+    if hard_delete {
+        let query = "CALL sp_delete_object(?)";
+        let result = sqlx::query(query)
+            .bind(ob.metadata_id())
+            .execute(&sc.pool)
+            .await?;
+        Ok(result.rows_affected())
+    } else {
+        // Soft delete: set deleted flag and update
+        ob.set_deleted(true);
+        update(sc, ob).await?;
+        Ok(1)
     }
 }
 

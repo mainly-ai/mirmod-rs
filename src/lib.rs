@@ -62,6 +62,7 @@ mod tests {
             orm::docker_job::WorkflowState::Running => orm::docker_job::WorkflowState::Error,
             orm::docker_job::WorkflowState::Error => orm::docker_job::WorkflowState::Exited,
             orm::docker_job::WorkflowState::Exited => orm::docker_job::WorkflowState::Uninitialized,
+            orm::docker_job::WorkflowState::Restarting => orm::docker_job::WorkflowState::Ready,
         };
         let new_cpu_seconds = ob.cpu_seconds() + 1.2;
 
@@ -119,7 +120,7 @@ mod tests {
         let username = hashcookie::HashCookieTokenPayload::new(token.clone())
             .expect("Error parsing token")
             .get_username();
-        let user = admin::users::find_user_by_username(&mut sctx, &username)
+        let user = admin::users::find_user_by_username(&mut sctx.pool, &username)
             .await
             .expect("Error finding user");
         println!("{:?}", user);
